@@ -22,7 +22,7 @@ public class GameManager : MonoBehaviour
 
     bool gameEnd = false;
     bool isPaused = false;
-
+    int i = 1;
     private void Update()
     {
         if(transform.position.x > milestone)
@@ -30,7 +30,7 @@ public class GameManager : MonoBehaviour
             milestone += speedIncreaseMilestone;
             speedIncreaseMilestone += speedIncreaseMilestone * speedMultiplier;
             gameSpeed *= speedMultiplier;
-
+            print(i++);
             if(EnemySpawner.Instance.spawnTime >= 1.6f)
                 EnemySpawner.Instance.spawnTime /= speedMultiplier;
         }

@@ -5,15 +5,23 @@ using UnityEngine;
 
 public class PlayerMovement : MonoBehaviour
 {
-    public float runSpeed = 0;
-    public float jumpPower;
-    public bool sedangLompat;
+    [Header("Horizontal Move")]
+    public float maximumAcceleration;
+    public float horizontalAcceleration;
+    [Range(0f, 1f)]
+    public float horizontalDamping;
 
-    [Header("Ground Checker")]
-    public Transform groundPoint;
-    public LayerMask whatIsGround;
-    public float checkRadius;
-    public bool isGrounded;
+    [Header("Jump Variable")]
+    public LayerMask groundMask;
+    [Range(0f, 1f)]
+    public float cutJumpHeight;
+    public float jumpPressedRememberTime;
+    public float groundRememberTime;
+    public float jumpPower;
+    float jumpPressedRemember;
+    float groundRemember;
+    bool isJump = false;
+    bool isGrounded;
 
     [Header("Rocket Data")]
     public float rocketPower;
@@ -23,6 +31,7 @@ public class PlayerMovement : MonoBehaviour
     float rocketTimeCount;
     public ParticleSystem rocketParticle;
     bool useRocket;
+    bool canRocket;
 
     Rigidbody2D _rigidBody;
     Animator _animator;
@@ -32,7 +41,6 @@ public class PlayerMovement : MonoBehaviour
         _rigidBody = GetComponent<Rigidbody2D>();
         _animator = GetComponent<Animator>();
 
-        runSpeed = GameManager.Instance.gameSpeed * 1.5f;
         rocketTimeCount = rocketTime;
         UIManager.Instance.rocketBar.SetMaxAmount(rocketTime);
 
@@ -42,13 +50,21 @@ public class PlayerMovement : MonoBehaviour
     private void FixedUpdate()
     {
         Move();
+        Jump();
     }
 
     private void Update()
     {
-        isGrounded = Physics2D.OverlapCircle(groundPoint.position, checkRadius, whatIsGround);
+        if (Input.GetButtonDown("Jump"))
+        {
+            isJump = true;
+        }
+        else if (Input.GetButtonUp("Jump"))
+        {
+            isJump = false;
+        }
 
-        Jump();
+        Rocket();
     }
 
     public void FlipPlayer(float input)
@@ -59,37 +75,14 @@ public class PlayerMovement : MonoBehaviour
             transform.eulerAngles = new Vector3(0, 180, 0);
     }
 
-    void Move()
+    void Rocket()
     {
-        float input = Input.GetAxisRaw("Horizontal");
-        _animator.SetFloat("speed", Mathf.Abs(input));
-
-        FlipPlayer(input);
-        runSpeed = GameManager.Instance.gameSpeed * 1.5f;
-        Vector2 direction = new Vector2(input * runSpeed, _rigidBody.velocity.y);
-        _rigidBody.velocity = direction;
-    }
-
-    public void SetJumpAnimation()
-    {
-        _animator.SetTrigger("takeOff");
-    }
-
-    void Jump()
-    {
-        if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
-        {
-            SetJumpAnimation();
-            AudioManager.Instance.Play("PlayerJump");
-            _rigidBody.velocity = Vector2.up * jumpPower;
-        }
-
-        if (Input.GetKey(KeyCode.W) && sedangLompat)
+        if (Input.GetKey(KeyCode.W) && canRocket)
         {
             if (rocketTimeCount > 0)
             {
                 useRocket = true;
-                _rigidBody.velocity = Vector2.up * rocketPower;
+                _rigidBody.velocity = new Vector2(_rigidBody.velocity.x, rocketPower);
                 rocketParticle.Play();
                 rocketTimeCount -= Time.deltaTime * rocketBoostTime;
                 UIManager.Instance.rocketBar.SetAmount(rocketTimeCount);
@@ -97,27 +90,15 @@ public class PlayerMovement : MonoBehaviour
             else
             {
                 rocketParticle.Stop();
-                sedangLompat = false;
+                canRocket = false;
             }
         }
-        else if (Input.GetKeyUp(KeyCode.W))
+
+        if (Input.GetKeyUp(KeyCode.W))
         {
             useRocket = false;
             rocketParticle.Stop();
         }
-
-        if (isGrounded)
-        {
-            sedangLompat = false;
-            _animator.SetBool("isJumping", false);
-            rocketParticle.Stop();
-        }
-        else if (!isGrounded)
-        {
-            sedangLompat = true;
-            _animator.SetBool("isJumping", true);
-        }
-
 
         if (rocketTimeCount <= rocketTime && !useRocket)
         {
@@ -131,8 +112,64 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    public void AddForceToPlayer(float forcePower, Vector2 direction, float distance)
+    void Move()
     {
-        _rigidBody.velocity = direction * forcePower * distance;
+        float horizontalVelocity = _rigidBody.velocity.x;
+        float input = Input.GetAxisRaw("Horizontal");
+
+        FlipPlayer(input);
+        _animator.SetFloat("speed", Mathf.Abs(input));
+
+        horizontalAcceleration = Mathf.Clamp(maximumAcceleration - (GameManager.Instance.gameSpeed * 0.95f), 5f, 11f);
+
+        horizontalVelocity += input;
+        horizontalVelocity *= Mathf.Pow(1f - horizontalDamping, Time.deltaTime * horizontalAcceleration);
+        _rigidBody.velocity = new Vector2(horizontalVelocity, _rigidBody.velocity.y);
+    }
+
+    void Jump()
+    {
+        Vector2 groundChectPoint = (Vector2)transform.position + new Vector2(0, -0.02f);
+        isGrounded = Physics2D.OverlapBox(
+                groundChectPoint,
+                new Vector3(transform.localScale.x / 2, transform.localScale.y * 1.35f, transform.localScale.z),
+                0, groundMask
+            );
+
+        groundRemember -= Time.deltaTime;
+        if (isGrounded)
+        {
+            groundRemember = groundRememberTime;
+            canRocket = false;
+            _animator.SetBool("isJumping", false);
+        }
+        else if (!isGrounded)
+        {
+            canRocket = true;
+            _animator.SetBool("isJumping", true);
+        }
+
+        jumpPressedRemember -= Time.deltaTime;
+        if (isJump)
+        {
+            canRocket = true;
+            jumpPressedRemember = jumpPressedRememberTime;
+        }
+
+        /*if (!isJump)
+        {
+            if (_rigidBody.velocity.y > 0)
+            {
+                _rigidBody.velocity = new Vector2(_rigidBody.velocity.x, _rigidBody.velocity.y * cutJumpHeight);
+            }
+        }*/
+
+        if ((jumpPressedRemember > 0) && (groundRemember > 0))
+        {
+            _animator.SetTrigger("takeOff");
+            jumpPressedRemember = 0;
+            groundRemember = 0;
+            _rigidBody.velocity = new Vector2(_rigidBody.velocity.x, jumpPower);
+        }
     }
 }

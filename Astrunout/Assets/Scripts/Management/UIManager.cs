@@ -26,7 +26,7 @@ public class UIManager : MonoBehaviour
     public void GameOverScreen()
     {
         gameOverScreen.SetActive(true);
-        scoreUI.text = Mathf.Round(ScoreManager.Instance.score).ToString();
+        scoreUI.text = Mathf.Round(ScoreManager.Instance.GetCurrentScore()).ToString();
     }
 
     public void PauseGame()

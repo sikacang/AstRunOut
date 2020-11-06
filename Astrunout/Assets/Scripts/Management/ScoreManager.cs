@@ -15,8 +15,8 @@ public class ScoreManager : MonoBehaviour
     public Text scoreText;
     public Text highScoreText;
 
-    public float score;
-    public float highScore;
+    private float score;
+    private float highScore;
 
     public float pointPerSecond;
     public bool isScoring;
@@ -45,4 +45,13 @@ public class ScoreManager : MonoBehaviour
         highScoreText.text = Mathf.Round(PlayerPrefs.GetFloat("Highscore")).ToString();
     }
 
+    public void AddScore(float point)
+    {
+        score += point;
+    }
+
+    public float GetCurrentScore()
+    {
+        return score;
+    }
 }
